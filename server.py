@@ -4,16 +4,6 @@ import os
 
 app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return "Kickoff Flask Backend is Running! 🚀"
-
-# Get the PORT from Render's environment variable
-port = int(os.environ.get("PORT", 10000))  # Default is 10000
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=port, debug=True)
-
 # Match Data File
 MATCH_FILE = "match_data.json"
 
@@ -110,6 +100,16 @@ def submit_match():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/')
+def home():
+    return "Kickoff Flask Backend is Running! 🚀"
+
+# Get the PORT from Render's environment variable
+port = int(os.environ.get("PORT", 10000))  # Default is 10000
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=port, debug=True)
 
 # Run Flask Server
 if __name__ == "__main__":
