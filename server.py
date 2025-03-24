@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify
 import json
 import os
+from flask_cors import CORS
 from service import getAllPlayers, addNewPlayer, editPlayer, deletePlayer
 
 app = Flask(__name__)
+CORS(app)
 
 # Match Data File
 MATCH_FILE = "match_data.json"
