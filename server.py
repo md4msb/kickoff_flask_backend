@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import json
 import os
+from service import getAllPlayers, addNewPlayer, editPlayer, deletePlayer
 
 app = Flask(__name__)
 
@@ -100,6 +101,33 @@ def submit_match():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# Get all players
+@app.route("/getAllPlayers", methods=["GET"])
+def get_players():
+    return jsonify(getAllPlayers())
+
+# Add a new player
+@app.route("/addNewPlayers", methods=["POST"])
+def add_player():
+    data = request.get_json()
+    response, status = addNewPlayer(data)
+    return jsonify(response), status
+
+# Edit an existing player
+@app.route("/editPlayer", methods=["PUT"])
+def edit_player():
+    data = request.get_json()
+    response, status = editPlayer(data)
+    return jsonify(response), status
+
+# Delete a player
+@app.route("/deletePlayer", methods=["DELETE"])
+def delete_player():
+    data = request.get_json()
+    response, status = deletePlayer(data)
+    return jsonify(response), status
+
 
 @app.route('/')
 def home():
