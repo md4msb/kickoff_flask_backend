@@ -1,35 +1,25 @@
 from flask import Flask, request, jsonify
-import json
 import os
 from flask_cors import CORS
-from service import getAllPlayers, addNewPlayer, editPlayer, deletePlayer
+from dotenv import load_dotenv
+from models import db, Player, Match
+from service import addNewPlayer, editPlayer, deletePlayer, submitMatchResult
+
+# Load environment variables
+load_dotenv()
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 app = Flask(__name__)
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db.init_app(app)  # Initialize db with app
+
 CORS(app)
 
-# Match Data File
-MATCH_FILE = "match_data.json"
-
-# Load Match History
-def load_match_data():
-    if not os.path.exists(MATCH_FILE):
-        return {"matches": []}  # Return empty if file does not exist
-
-    with open(MATCH_FILE, "r") as file:
-        content = file.read().strip()
-
-        if not content:
-            return {"matches": []}
-
-        return json.loads(content)
-
-# Save Match History
-def save_match_data(match):
-    data = load_match_data()
-    data["matches"].append(match)
-
-    with open(MATCH_FILE, "w") as file:
-        json.dump(data, file, indent=4)
+# Ensure database tables are created
+with app.app_context():
+    db.create_all()
 
 # Function to Split Teams Fairly
 def split_teams(players):
@@ -49,23 +39,20 @@ def split_teams(players):
 
 # Function to Recommend Teams Based on Match History
 def recommend_teams(players):
-    match_data = load_match_data()
+    matches = Match.query.all()  # Fetch all match records from the database
 
-    if not match_data["matches"]:  # No history, just balance based on strength
+    if not matches:  # No history, just balance based on strength
         return split_teams(players)
 
-    # Count how many times each player has won
     winner_counts = {}
-    
-    for match in match_data["matches"]:
-        if "winner" in match and match["winner"] in match:
-            for player in match[match["winner"]]:
-                winner_counts[player["name"]] = winner_counts.get(player["name"], 0) + 1
+    for match in matches:
+        winning_team = match.team1 if match.winner == "team1" else match.team2
 
-    # Sort players by how many times they have won
+        for player in winning_team:
+            player_name = player["name"]
+            winner_counts[player_name] = winner_counts.get(player_name, 0) + 1
+
     sorted_players = sorted(players, key=lambda x: winner_counts.get(x["name"], 0), reverse=True)
-
-    # Now balance the teams properly
     return split_teams(sorted_players)
 
 # API to Recommend Teams
@@ -89,25 +76,16 @@ def get_recommendations():
 def submit_match():
     try:
         data = request.get_json()
-        if not data or "winner" not in data or "teams" not in data:
-            return jsonify({"error": "Invalid input format"}), 400
-
-        match_result = {
-            "winner": data["winner"],
-            "team1": data["teams"]["team1"],
-            "team2": data["teams"]["team2"]
-        }
-
-        save_match_data(match_result)
-        return jsonify({"message": "Match result saved successfully"})
-
+        response, status = submitMatchResult(data)
+        return jsonify(response), status
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 # Get all players
 @app.route("/getAllPlayers", methods=["GET"])
 def get_players():
-    return jsonify(getAllPlayers())
+    players = Player.query.all()
+    return jsonify([{"id": p.id, "name": p.name, "position": p.position, "strength": p.strength} for p in players])
 
 # Add a new player
 @app.route("/addNewPlayers", methods=["POST"])
@@ -130,17 +108,10 @@ def delete_player():
     response, status = deletePlayer(data)
     return jsonify(response), status
 
-
 @app.route('/')
 def home():
     return "Kickoff Flask Backend is Running! 🚀"
 
-# Get the PORT from Render's environment variable
-port = int(os.environ.get("PORT", 10000))  # Default is 10000
-
+# Start Flask Server
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=port, debug=True)
-
-# Run Flask Server
-if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=True)
